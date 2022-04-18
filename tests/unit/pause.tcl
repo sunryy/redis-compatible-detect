@@ -208,5 +208,5 @@ start_server {tags {"pause network"}} {
     }
 
     # Make sure we unpause at the end
-    r client unpause
+    #r client unpause
 }

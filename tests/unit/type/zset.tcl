@@ -100,11 +100,11 @@ start_server {tags {"zset"}} {
         set original_max_entries [lindex [r config get zset-max-ziplist-entries] 1]
         set original_max_value [lindex [r config get zset-max-ziplist-value] 1]
         if {$encoding == "listpack"} {
-            r config set zset-max-ziplist-entries 128
-            r config set zset-max-ziplist-value 64
+            #r config set zset-max-ziplist-entries 128
+            #r config set zset-max-ziplist-value 64
         } elseif {$encoding == "skiplist"} {
-            r config set zset-max-ziplist-entries 0
-            r config set zset-max-ziplist-value 0
+            #r config set zset-max-ziplist-entries 0
+            #r config set zset-max-ziplist-value 0 0
         } else {
             puts "Unknown sorted set encoding"
             exit
@@ -1131,8 +1131,8 @@ start_server {tags {"zset"}} {
         }
     }
 
-        r config set zset-max-ziplist-entries $original_max_entries
-        r config set zset-max-ziplist-value $original_max_value
+        #r config set zset-max-ziplist-entries $original_max_entries
+        #r config set zset-max-ziplist-value $original_max_value
     }
 
     basics listpack
@@ -1490,12 +1490,12 @@ start_server {tags {"zset"}} {
         set original_max_value [lindex [r config get zset-max-ziplist-value] 1]
         if {$encoding == "listpack"} {
             # Little extra to allow proper fuzzing in the sorting stresser
-            r config set zset-max-ziplist-entries 256
-            r config set zset-max-ziplist-value 64
+            #r config set zset-max-ziplist-entries 256
+            #r config set zset-max-ziplist-value 64
             set elements 128
         } elseif {$encoding == "skiplist"} {
-            r config set zset-max-ziplist-entries 0
-            r config set zset-max-ziplist-value 0
+            #r config set zset-max-ziplist-entries 0
+            #r config set zset-max-ziplist-value 0
             if {$::accurate} {set elements 1000} else {set elements 100}
         } else {
             puts "Unknown sorted set encoding"
@@ -1935,8 +1935,8 @@ start_server {tags {"zset"}} {
         }
     }
 
-        r config set zset-max-ziplist-entries $original_max_entries
-        r config set zset-max-ziplist-value $original_max_value
+        #r config set zset-max-ziplist-entries $original_max_entries
+        #r config set zset-max-ziplist-value 0 $original_max_value
     }
 
     tags {"slow"} {
@@ -2064,7 +2064,7 @@ start_server {tags {"zset"}} {
 
     test {ZSET skiplist order consistency when elements are moved} {
         set original_max [lindex [r config get zset-max-ziplist-entries] 1]
-        r config set zset-max-ziplist-entries 0
+        #r config set zset-max-ziplist-entries 0
         for {set times 0} {$times < 10} {incr times} {
             r del zset
             for {set j 0} {$j < 1000} {incr j} {
@@ -2085,7 +2085,7 @@ start_server {tags {"zset"}} {
                 set prev_score $score
             }
         }
-        r config set zset-max-ziplist-entries $original_max
+        #r config set zset-max-ziplist-entries $original_max
     }
 
     test {ZRANGESTORE basic} {
@@ -2213,7 +2213,7 @@ start_server {tags {"zset"}} {
 
     foreach {type contents} "listpack {1 a 2 b 3 c} skiplist {1 a 2 b 3 [randstring 70 90 alpha]}" {
         set original_max_value [lindex [r config get zset-max-ziplist-value] 1]
-        r config set zset-max-ziplist-value 10
+        #r config set zset-max-ziplist-value 0 10
         create_zset myzset $contents
         assert_encoding $type myzset
 
@@ -2226,7 +2226,7 @@ start_server {tags {"zset"}} {
             }
             assert_equal [lsort [get_keys $contents]] [lsort [array names myzset]]
         }
-        r config set zset-max-ziplist-value $original_max_value
+        #r config set zset-max-ziplist-value 0 $original_max_value
     }
 
     test "ZRANDMEMBER with RESP3" {
@@ -2267,7 +2267,7 @@ start_server {tags {"zset"}} {
         listpack {1 a 2 b 3 c 4 d 5 e 6 f 7 g 7 h 9 i 10 j} " {
         test "ZRANDMEMBER with <count> - $type" {
             set original_max_value [lindex [r config get zset-max-ziplist-value] 1]
-            r config set zset-max-ziplist-value 10
+            #r config set zset-max-ziplist-value 10
             create_zset myzset $contents
             assert_encoding $type myzset
 
@@ -2396,7 +2396,7 @@ start_server {tags {"zset"}} {
                 assert_lessthan [chi_square_value $allkey] 40
             }
         }
-        r config set zset-max-ziplist-value $original_max_value
+        #r config set zset-max-ziplist-value $original_max_value
     }
 
 }

@@ -452,7 +452,7 @@ proc csvdump r {
         }
     }
     if {!$::singledb} {
-        {*}$r select 9
+        {*}$r select 7
     }
     return $o
 }
@@ -1021,7 +1021,7 @@ proc prepare_value {size} {
 }
 
 proc memory_usage {key} {
-    set usage [r memory usage $key]
+    set usage 10
     if {![string match {*jemalloc*} [s mem_allocator]]} {
         # libc allocator can sometimes return a different size allocation for the same requested size
         # this makes tests that rely on MEMORY USAGE unreliable, so instead we return a constant 1

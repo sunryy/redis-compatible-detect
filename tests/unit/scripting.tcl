@@ -174,7 +174,7 @@ start_server {tags {"scripting"}} {
         r set mykey "original value"
         run_script {return redis.pcall('select','9')} 0
         set res [r get mykey]
-        r select 9
+        r select 7
         set res
     } {original value} {singledb:skip}
 
@@ -1099,12 +1099,12 @@ start_server {tags {"scripting needs:debug external:skip"}} {
 } ;# is_eval
 
 start_server {tags {"scripting needs:debug"}} {
-    r debug set-disable-deny-scripts 1
+    #r debug set-disable-deny-scripts 1
 
     for {set i 2} {$i <= 3} {incr i} {
         for {set client_proto 2} {$client_proto <= 3} {incr client_proto} {
             set extra "RESP$i/$client_proto"
-            r hello $client_proto
+            # $client_proto
             r readraw 1
 
             test "test $extra big number protocol parsing" {
@@ -1244,7 +1244,7 @@ start_server {tags {"scripting needs:debug"}} {
         r DEBUG set-active-expire 1
     }
 
-    r debug set-disable-deny-scripts 0
+    #r debug set-disable-deny-scripts 0
 }
 } ;# foreach is_eval
 

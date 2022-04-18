@@ -1,7 +1,7 @@
 # check functionality compression of plain and zipped nodes
-start_server [list overrides [list save ""] ] {
-    r config set list-compress-depth 2
-    r config set list-max-ziplist-size 1
+start_server [list overrides [] ] {
+    #r config set list-compress-depth 2
+    #r config set list-max-ziplist-size 1
 
     # 3 test to check compression with regular ziplist nodes
     # 1. using push + insert
@@ -89,11 +89,11 @@ start_server [list overrides [list save ""] ] {
     } {} {needs:debug}
 
     # revert config for external mode tests.
-    r config set list-compress-depth 0
+    #r config set list-compress-depth 0
 }
 
 # check functionality of plain nodes using low packed-threshold
-start_server [list overrides [list save ""] ] {
+start_server [list overrides [] ] {
     # basic command check for plain nodes - "LPUSH & LPOP"
     test {Test LPUSH and LPOP on plain nodes} {
         r flushdb
@@ -252,7 +252,7 @@ start_server [list overrides [list save ""] ] {
     } {} {needs:debug}
 }
 
-start_server [list overrides [list save ""] ] {
+start_server [list overrides [] ] {
 
 # test if the server supports such large configs (avoid 32 bit builds)
 catch {
@@ -353,7 +353,6 @@ if {[lindex [r config get proto-max-bulk-len] 1] == 10000000000} {
 start_server {
     tags {"list"}
     overrides {
-        "list-max-ziplist-size" 5
     }
 } {
     source "tests/unit/type/list-common.tcl"
@@ -510,7 +509,7 @@ start_server {
     }
 
     foreach resp {3 2} {
-        r hello $resp
+        #r hello $resp
 
         # Make sure we can distinguish between an empty array and a null response
         r readraw 1
@@ -1042,7 +1041,7 @@ foreach {pop} {BLPOP BLMPOP_LEFT} {
         r flushall
         r select 1
         r rpush k hello
-        r select 9
+        r
         set rd [redis_deferring_client]
         $rd brpop k 5
         wait_for_blocked_clients_count 1
@@ -1058,7 +1057,7 @@ foreach {pop} {BLPOP BLMPOP_LEFT} {
         r rpush k hello
         r pexpire k 100
         set rd [redis_deferring_client]
-        $rd select 9
+        $rd
         assert_equal {OK} [$rd read]
         $rd client id
         set id [$rd read]
@@ -1085,7 +1084,7 @@ foreach {pop} {BLPOP BLMPOP_LEFT} {
         close_replication_stream $repl
         # Restore server and client state
         r debug set-active-expire 1
-        r select 9
+        r
     } {OK} {singledb:skip needs:debug}
 
     test {MULTI + LPUSH + EXPIRE + DEBUG SLEEP on blocked client, key already expired} {
@@ -1123,7 +1122,7 @@ foreach {pop} {BLPOP BLMPOP_LEFT} {
         close_replication_stream $repl
         # Restore server and client state
         r debug set-active-expire 1
-        r select 9
+        r
     } {OK} {singledb:skip needs:debug}
 
 foreach {pop} {BLPOP BLMPOP_LEFT} {

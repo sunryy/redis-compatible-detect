@@ -19,7 +19,7 @@ start_server {tags {"dismiss external:skip"}} {
 
         # list
         r lpush biglist1 $bigstr            ; # uncompressed ziplist node
-        r config set list-compress-depth 1  ; # compressed ziplist nodes
+        #r config set list-compress-depth 1  ; # compressed ziplist nodes
         for {set i 0} {$i < 16} {incr i} {
             r lpush biglist2 $bigstr
         }

@@ -36,7 +36,7 @@ start_server {tags {"hash"}} {
 
     foreach {type contents} "listpack {{a 1} {b 2} {c 3}} hashtable {{a 1} {b 2} {[randstring 70 90 alpha] 3}}" {
         set original_max_value [lindex [r config get hash-max-ziplist-value] 1]
-        r config set hash-max-ziplist-value 10
+        #r config set hash-max-ziplist-value 10
         create_hash myhash $contents
         assert_encoding $type myhash
 
@@ -52,7 +52,7 @@ start_server {tags {"hash"}} {
             }
             assert_equal [lsort [get_keys $contents]] [lsort [array names myhash]]
         }
-        r config set hash-max-ziplist-value $original_max_value
+        #r config set hash-max-ziplist-value $original_max_value
     }
 
     test "HRANDFIELD with RESP3" {
@@ -93,7 +93,7 @@ start_server {tags {"hash"}} {
         listpack {{a 1} {b 2} {c 3} {d 4} {e 5} {6 f} {7 g} {8 h} {9 i} {10 j}} " {
         test "HRANDFIELD with <count> - $type" {
             set original_max_value [lindex [r config get hash-max-ziplist-value] 1]
-            r config set hash-max-ziplist-value 10
+            #r config set hash-max-ziplist-value 10
             create_hash myhash $contents
             assert_encoding $type myhash
 
@@ -217,7 +217,7 @@ start_server {tags {"hash"}} {
                 assert_lessthan [chi_square_value $allkey] 40
             }
         }
-        r config set hash-max-ziplist-value $original_max_value
+        #r config set hash-max-ziplist-value $original_max_value
     }
 
 
@@ -716,7 +716,7 @@ start_server {tags {"hash"}} {
     }
 
     test {Stress test the hash ziplist -> hashtable encoding conversion} {
-        r config set hash-max-ziplist-entries 32
+        #r config set hash-max-ziplist-entries 32
         for {set j 0} {$j < 100} {incr j} {
             r del myhash
             for {set i 0} {$i < 64} {incr i} {

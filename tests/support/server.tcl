@@ -332,7 +332,7 @@ proc run_external_server_test {code overrides} {
     set client [redis $::host $::port 0 $::tls]
     dict set srv "client" $client
     if {!$::singledb} {
-        $client select 9
+        $client select 7
     }
 
     set config {}
@@ -349,7 +349,7 @@ proc run_external_server_test {code overrides} {
     }
 
     r flushall
-    r function flush
+    #r function flush
 
     # store overrides
     set saved_config {}

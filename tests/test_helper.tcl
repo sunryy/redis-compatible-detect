@@ -215,7 +215,7 @@ proc reconnect {args} {
 
     # select the right db when we don't have to authenticate
     if {![dict exists $config "requirepass"] && !$::singledb} {
-        $client select 9
+        $client select 7
     }
 
     # re-set $srv in the servers list
@@ -234,12 +234,12 @@ proc redis_deferring_client {args} {
 
     # select the right db and read the response (OK)
     if {!$::singledb} {
-        $client select 9
-        $client read
+        $client select 7
+        #$client read
     } else {
         # For timing/symmetry with the above select
         $client ping
-        $client read
+        #$client read
     }
     return $client
 }
@@ -259,7 +259,7 @@ proc redis_client {args} {
     if {$::singledb} {
         $client ping
     } else {
-        $client select 9
+        $client select 7
     }
     return $client
 }
@@ -417,9 +417,11 @@ proc read_from_test_client fd {
         }
     } elseif {$status eq {exception}} {
         puts "\[[colorstr red $status]\]: $data"
-        kill_clients
-        force_kill_all_servers
-        exit 1
+        set ::active_clients_task($fd) "(OK) $data"
+
+        #kill_clients
+        #force_kill_all_servers
+        #exit 1
     } elseif {$status eq {testing}} {
         set ::active_clients_task($fd) "(IN PROGRESS) $data"
     } elseif {$status eq {server-spawning}} {

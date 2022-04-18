@@ -37,7 +37,6 @@ proc generate_cmd_on_list_key {key} {
 start_server {
     tags {"list ziplist"}
     overrides {
-        "list-max-ziplist-size" 16
     }
 } {
     test {Explicit regression for a list bug} {
@@ -64,7 +63,7 @@ start_server {
 
     test {Check compression with recompress} {
         r del key
-        config_set list-compress-depth 1
+        #config_set list-compress-depth 1
         config_set list-max-ziplist-size 16
         r rpush key a
         r rpush key [string repeat b 50000]
@@ -79,7 +78,7 @@ start_server {
 
     test {Crash due to wrongly recompress after lrem} {
         r del key
-        config_set list-compress-depth 2
+        #config_set list-compress-depth 2
         r lpush key a
         r lpush key [string repeat a 5000]
         r lpush key [string repeat b 5000]
@@ -95,7 +94,7 @@ start_server {
 
     test {LINSERT correctly recompress full quicklistNode after inserting a element before it} {
         r del key
-        config_set list-compress-depth 1
+        #config_set list-compress-depth 1
         r rpush key b
         r rpush key c
         r lset key -1 [string repeat x 8192]"969"
@@ -108,7 +107,7 @@ start_server {
 
     test {LINSERT correctly recompress full quicklistNode after inserting a element after it} {
         r del key
-        config_set list-compress-depth 1
+        #config_set list-compress-depth 1
         r rpush key b
         r rpush key c
         r lset key 0 [string repeat x 8192]"969"
@@ -122,7 +121,7 @@ start_server {
 foreach comp {2 1 0} {
     set cycles 1000
     if {$::accurate} { set cycles 10000 }
-    config_set list-compress-depth $comp
+    #config_set list-compress-depth $comp
     
     test "Stress tester for #3343-alike bugs comp: $comp" {
         r del key

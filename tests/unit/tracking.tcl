@@ -2,7 +2,7 @@ start_server {tags {"tracking network"}} {
     # Create a deferred client we'll use to redirect invalidation
     # messages to.
     set rd_redirection [redis_deferring_client]
-    $rd_redirection client id
+    #$rd_redirection client id
     set redir_id [$rd_redirection read]
     $rd_redirection subscribe __redis__:invalidate
     $rd_redirection read ; # Consume the SUBSCRIBE reply.

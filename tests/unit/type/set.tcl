@@ -1,7 +1,6 @@
 start_server {
     tags {"set"}
     overrides {
-        "set-max-intset-entries" 512
     }
 } {
     proc create_set {key entries} {
@@ -895,7 +894,7 @@ start_server {
         r exec
         set res [r scard dstset{t}]
         assert_equal $res 2
-        $r2 close
+        #$r2 close
     }
 
     tags {slow} {
@@ -935,7 +934,7 @@ start_server {
     }
 }
 
-start_server [list overrides [list save ""] ] {
+start_server [list overrides [] ] {
 
 # test if the server supports such large configs (avoid 32 bit builds)
 catch {

@@ -644,7 +644,7 @@ start_server {
     }
 }
 
-start_server {tags {"stream needs:debug"} overrides {appendonly yes}} {
+start_server {tags {"stream needs:debug"} overrides {}} {
     test {XADD with MAXLEN > xlen can propagate correctly} {
         for {set j 0} {$j < 100} {incr j} {
             r XADD mystream * xitem v
@@ -659,7 +659,7 @@ start_server {tags {"stream needs:debug"} overrides {appendonly yes}} {
     }
 }
 
-start_server {tags {"stream needs:debug"} overrides {appendonly yes}} {
+start_server {tags {"stream needs:debug"} overrides {}} {
     test {XADD with MINID > lastid can propagate correctly} {
         for {set j 0} {$j < 100} {incr j} {
             set id [expr {$j+1}]
@@ -675,7 +675,7 @@ start_server {tags {"stream needs:debug"} overrides {appendonly yes}} {
     }
 }
 
-start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-max-entries 100}} {
+start_server {tags {"stream needs:debug"} overrides {}} {
     test {XADD with ~ MAXLEN can propagate correctly} {
         for {set j 0} {$j < 100} {incr j} {
             r XADD mystream * xitem v
@@ -691,7 +691,7 @@ start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-
     }
 }
 
-start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-max-entries 10}} {
+start_server {tags {"stream needs:debug"} overrides {}} {
     test {XADD with ~ MAXLEN and LIMIT can propagate correctly} {
         for {set j 0} {$j < 100} {incr j} {
             r XADD mystream * xitem v
@@ -705,7 +705,7 @@ start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-
     }
 }
 
-start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-max-entries 100}} {
+start_server {tags {"stream needs:debug"} overrides {}} {
     test {XADD with ~ MINID can propagate correctly} {
         for {set j 0} {$j < 100} {incr j} {
             set id [expr {$j+1}]
@@ -722,7 +722,7 @@ start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-
     }
 }
 
-start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-max-entries 10}} {
+start_server {tags {"stream needs:debug"} overrides {}} {
     test {XADD with ~ MINID and LIMIT can propagate correctly} {
         for {set j 0} {$j < 100} {incr j} {
             set id [expr {$j+1}]
@@ -737,7 +737,7 @@ start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-
     }
 }
 
-start_server {tags {"stream needs:debug"} overrides {appendonly yes stream-node-max-entries 10}} {
+start_server {tags {"stream needs:debug"} overrides {}} {
     test {XTRIM with ~ MAXLEN can propagate correctly} {
         for {set j 0} {$j < 100} {incr j} {
             r XADD mystream * xitem v
@@ -870,7 +870,7 @@ start_server {tags {"stream offset"}} {
     }
 }
 
-start_server {tags {"stream needs:debug"} overrides {appendonly yes aof-use-rdb-preamble no}} {
+start_server {tags {"stream needs:debug"} overrides {}} {
     test {Empty stream can be rewrite into AOF correctly} {
         r XADD mystream MAXLEN 0 * a b
         assert {[dict get [r xinfo stream mystream] length] == 0}

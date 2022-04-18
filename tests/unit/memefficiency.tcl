@@ -58,7 +58,7 @@ start_server {tags {"defrag external:skip"} overrides {appendonly yes auto-aof-r
             }
             assert {$frag >= 1.4}
 
-            r config set latency-monitor-threshold 5
+            #r config set latency-monitor-threshold 5
             r latency reset
             r config set maxmemory 110mb ;# prevent further eviction (not to fail the digest test)
             set digest [debug_digest]
@@ -313,7 +313,7 @@ start_server {tags {"defrag external:skip"} overrides {appendonly yes auto-aof-r
                 puts "frag $frag"
             }
             assert {$frag >= $expected_frag}
-            r config set latency-monitor-threshold 5
+            #r config set latency-monitor-threshold 5
             r latency reset
 
             set digest [debug_digest]
@@ -409,7 +409,7 @@ start_server {tags {"defrag external:skip"} overrides {appendonly yes auto-aof-r
             }
 
             assert {$frag >= $expected_frag}
-            r config set latency-monitor-threshold 5
+            #r config set latency-monitor-threshold 5
             r latency reset
 
             set digest [debug_digest]

@@ -1,7 +1,7 @@
 start_server {tags {"latency-monitor needs:latency"}} {
     # Set a threshold high enough to avoid spurious latency events.
-    r config set latency-monitor-threshold 200
-    r latency reset
+    #r config set latency-monitor-threshold 200
+    #r latency reset
 
     test {LATENCY HISTOGRAM with empty histogram} {
         r config resetstat
@@ -107,7 +107,7 @@ start_server {tags {"latency-monitor needs:latency"}} {
     }
 
     test {LATENCY of expire events are correctly collected} {
-        r config set latency-monitor-threshold 20
+        #r config set latency-monitor-threshold 20
         r flushdb
         if {$::valgrind} {set count 100000} else {set count 1000000}
         r eval {

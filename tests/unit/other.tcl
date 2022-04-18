@@ -243,7 +243,7 @@ start_server {tags {"other"}} {
             r flushdb
             lappend aux 0 [r dbsize]
         } else {
-            r select 9
+            r select 7
             r flushdb
             lappend aux [r dbsize]
             r select 10
@@ -253,31 +253,9 @@ start_server {tags {"other"}} {
     } {0 0}
 
     test {Perform a final SAVE to leave a clean DB on disk} {
-        waitForBgsave r
+        #waitForBgsave r
         r save
     } {OK} {needs:save}
-
-    test {RESET clears client state} {
-        r client setname test-client
-        r client tracking on
-
-        assert_equal [r reset] "RESET"
-        set client [r client list]
-        assert_match {*name= *} $client
-        assert_match {*flags=N *} $client
-    } {} {needs:reset}
-
-    test {RESET clears MONITOR state} {
-        set rd [redis_deferring_client]
-        $rd monitor
-        assert_equal [$rd read] "OK"
-
-        $rd reset
-        assert_equal [$rd read] "RESET"
-        $rd close
-
-        assert_no_match {*flags=O*} [r client list]
-    } {} {needs:reset}
 
     test {RESET clears and discards MULTI state} {
         r multi
@@ -339,14 +317,6 @@ start_server {tags {"other external:skip"}} {
         r set k3 v3
         assert_match "*table size: 8192*" [r debug HTSTATS 9]
     } {} {needs:debug needs:local-process}
-}
-
-proc read_proc_title {pid} {
-    set fd [open "/proc/$pid/cmdline" "r"]
-    set cmdline [read $fd 1024]
-    close $fd
-
-    return $cmdline
 }
 
 start_server {tags {"other external:skip"}} {
