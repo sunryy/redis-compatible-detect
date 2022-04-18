@@ -13,7 +13,6 @@ source tests/support/test.tcl
 source tests/support/util.tcl
 
 set ::all_tests {
-    unit/printver
     unit/dump
     unit/auth
     unit/protocol
@@ -86,18 +85,24 @@ set ::all_tests {
     unit/querybuf
     unit/pendingquerybuf
     unit/tls
-    unit/tracking
     unit/oom-score-adj
     unit/shutdown
     unit/networking
     unit/cluster
     unit/client-eviction
-    unit/violations
     unit/replybufsize
 }
 # Index to the next test to run in the ::all_tests list.
 set ::next_test 0
+set ::err_count 0
+set ::ok_count 0
+set ::exception_count 0
+set ::unsupported_count 0
+set ::ignored_count 0
 
+set ::unsupported_command {}
+set ::unsupported_option {}
+set ::supported_command {}
 set ::host 127.0.0.1
 set ::port 6379; # port for external server
 set ::baseport 21111; # initial port for spawned redis servers
@@ -393,9 +398,30 @@ proc read_from_test_client fd {
         signal_idle_client $fd
         set ::active_clients_task($fd) "(DONE) $data"
     } elseif {$status eq {ok}} {
+        incr ::ok_count
         if {!$::quiet} {
             puts "\[[colorstr green $status]\]: $data ($elapsed ms)"
         }
+        #data中第一个词如果为全大写则为实际命令名称
+        set fspace_index [string first " " $data ]
+        #puts "\n@#@#@#@#@#@#@#@ok response first space pos:$fspace_index\n"
+        if {$fspace_index > 0} {
+            set sup_cmd_name [string range $data 0 $fspace_index]
+            set tsup_cmd_name [string toupper $sup_cmd_name]
+            #puts "@#@#@#@#@#@#@#@@#@#@#@#@#@#@#@trans cmd name:$tsup_cmd_name"
+            if {[string match $tsup_cmd_name $sup_cmd_name]} {
+                set ret1 [lsearch $::supported_command $sup_cmd_name]
+                #puts "######*****###supported cmd: $sup_cmd_name,ret:$ret1"
+                set uspret1 [lsearch $::unsupported_command $sup_cmd_name]
+                if {$ret1 == -1} {
+                    #if {$uspret1 == -1} {
+                        lappend ::supported_command [string range $data 0 $fspace_index]
+                        puts "\n@#@#@#@#@#@#@#@ok response first space pos:$fspace_index, sup_cmd_name:$::supported_command\n"
+                    #}
+                }
+            }
+        }
+
         set ::active_clients_task($fd) "(OK) $data"
     } elseif {$status eq {skip}} {
         if {!$::quiet} {
@@ -405,8 +431,42 @@ proc read_from_test_client fd {
         if {!$::quiet} {
             puts "\[[colorstr cyan $status]\]: $data"
         }
+        incr ::ignored_count
     } elseif {$status eq {err}} {
-        set err "\[[colorstr red $status]\]: $data"
+        if {[string match {*unsupported command*} $data]} {
+            if {![string match {*Expected*} $data]} {
+                incr ::unsupported_count
+            
+                set err_string $data
+                set cmd_name [string range $err_string 36 end-1]
+                set ret [lsearch $::unsupported_command $cmd_name]
+                set spret [lsearch $::supported_command $cmd_name]
+                #puts "#########unsupported cmd: $cmd_name,ret:$ret"
+                # 如果supported_command 列表中有该命令则不添加不支持列表
+                if {$ret == -1} {
+                    if {$spret == -1} {
+                        lappend ::unsupported_command $cmd_name
+                        set cmd_cnt [llength $::unsupported_command]
+                        #puts "unsupported command num: $cmd_cnt"
+                    }
+                }
+            }
+        } elseif {[string match {*Unsupported CONFIG parameter*} $data]} {
+            set option_name [string range $data 34 end]
+            set ret2 [lsearch $::unsupported_option $option_name]
+            #puts "\n####CCCCCCCCCCCCCCCC#####unsupported cmd: $option_name,ret:$ret2\n"
+            if {$ret2 == -1} {
+                lappend ::unsupported_option $option_name
+                set opt_cnt [llength $::unsupported_option]
+                #puts "unsupported option num: $opt_cnt"
+            }
+        } else {
+                puts "command return unexcepted result"
+        }
+
+        incr ::err_count
+
+        set err "\[[colorstr red "failed"]\]: $data"
         puts $err
         lappend ::failed_tests $err
         set ::active_clients_task($fd) "(ERR) $data"
@@ -416,7 +476,8 @@ proc read_from_test_client fd {
             gets stdin
         }
     } elseif {$status eq {exception}} {
-        puts "\[[colorstr red $status]\]: $data"
+        incr ::exception_count
+        puts "\nslf add!!!!!\[[colorstr red $status]\]: $data\n"
         set ::active_clients_task($fd) "(OK) $data"
 
         #kill_clients
@@ -522,16 +583,46 @@ proc signal_idle_client fd {
 # executed, so the test finished.
 proc the_end {} {
     # TODO: print the status, exit with the right exit code.
-    puts "\n                   The End\n"
+    puts "\n -------------------The End-----------------\n"
+
     puts "Execution time of different units:"
     foreach {time name} $::clients_time_history {
         puts "  $time seconds - $name"
     }
+
     if {[llength $::failed_tests]} {
         puts "\n[colorstr bold-red {!!! WARNING}] The following tests failed:\n"
         foreach failed $::failed_tests {
             puts "*** $failed"
         }
+
+        set sup_len [llength $::supported_command]
+        set unsup_len [llength $::unsupported_command]
+        set total_cmd [expr {$sup_len+$unsup_len}]
+        puts "\n total cmd:$total_cmd,support $sup_len, unsupport $unsup_len \n"
+
+        puts "\n[colorstr red $::err_count]/[expr {$::err_count+ $::exception_count+ $::ok_count}] tests failed\n"
+        puts "\n[colorstr cyan $::ignored_count]/[expr {$::err_count+ $::exception_count+ $::ok_count+$::ignored_count}] tests ignored\n"
+        puts "\n[colorstr red $unsup_len]/$total_cmd command unsupported(maybe repeated)\n"
+
+        puts "$unsup_len unsupported commands: \n"
+        foreach cmd $::unsupported_command {
+            puts "   $cmd"
+        }
+        puts "\n"
+
+        puts "[llength $::unsupported_option] unsupported config option: \n"
+        foreach opt $::unsupported_option {
+            puts "   $opt"
+        }
+        puts "\n"
+
+        puts "$sup_len [colorstr green "supported"] commands: \n"
+        foreach scmd $::supported_command {
+            puts "   $scmd"
+        }
+        puts "\n"
+
         if {!$::dont_clean} cleanup
         exit 1
     } else {
