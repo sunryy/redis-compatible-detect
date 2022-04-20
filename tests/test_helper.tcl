@@ -15,16 +15,11 @@ source tests/support/util.tcl
 set ::all_tests {
     unit/dump
     unit/auth
-    unit/protocol
     unit/keyspace
     unit/scan
-    unit/info
-    unit/info-command
     unit/type/string
     unit/type/incr
     unit/type/list
-    unit/type/list-2
-    unit/type/list-3
     unit/type/set
     unit/type/zset
     unit/type/hash
@@ -36,39 +31,21 @@ set ::all_tests {
     unit/multi
     unit/quit
     unit/aofrw
-    unit/acl
-    unit/acl-v2
-    unit/latency-monitor
     integration/block-repl
     integration/replication
     integration/replication-2
     integration/replication-3
     integration/replication-4
     integration/replication-psync
-    integration/replication-buffer
-    integration/shutdown
     integration/aof
-    integration/aof-multi-part
     integration/rdb
-    integration/corrupt-dump
-    integration/corrupt-dump-fuzzer
     integration/convert-zipmap-hash-on-load
-    integration/convert-ziplist-hash-on-load
-    integration/convert-ziplist-zset-on-load
     integration/logging
     integration/psync2
     integration/psync2-reg
-    integration/psync2-pingoff
-    integration/psync2-master-restart
-    integration/failover
-    integration/redis-cli
-    integration/redis-benchmark
-    integration/dismiss-mem
     unit/pubsub
-    unit/pubsubshard
     unit/slowlog
     unit/scripting
-    unit/functions
     unit/maxmemory
     unit/introspection
     unit/introspection-2
@@ -81,16 +58,7 @@ set ::all_tests {
     unit/hyperloglog
     unit/lazyfree
     unit/wait
-    unit/pause
-    unit/querybuf
     unit/pendingquerybuf
-    unit/tls
-    unit/oom-score-adj
-    unit/shutdown
-    unit/networking
-    unit/cluster
-    unit/client-eviction
-    unit/replybufsize
 }
 # Index to the next test to run in the ::all_tests list.
 set ::next_test 0
@@ -103,6 +71,7 @@ set ::ignored_count 0
 set ::unsupported_command {}
 set ::unsupported_option {}
 set ::supported_command {}
+
 set ::host 127.0.0.1
 set ::port 6379; # port for external server
 set ::baseport 21111; # initial port for spawned redis servers
@@ -236,6 +205,7 @@ proc redis_deferring_client {args} {
 
     # create client that defers reading reply
     set client [redis [srv $level "host"] [srv $level "port"] 1 $::tls]
+    $client auth 186899slF@
 
     # select the right db and read the response (OK)
     if {!$::singledb} {
@@ -258,6 +228,7 @@ proc redis_client {args} {
 
     # create client that defers reading reply
     set client [redis [srv $level "host"] [srv $level "port"] 0 $::tls]
+    $client auth 186899slF@
 
     # select the right db and read the response (OK), or at least ping
     # the server if we're in a singledb mode.
@@ -433,7 +404,7 @@ proc read_from_test_client fd {
         }
         incr ::ignored_count
     } elseif {$status eq {err}} {
-        if {[string match {*unsupported command*} $data]} {
+        if {[string match {*unknown*command*} $data]} {
             if {![string match {*Expected*} $data]} {
                 incr ::unsupported_count
             
