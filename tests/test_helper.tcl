@@ -29,7 +29,6 @@ set ::all_tests {
     unit/expire
     unit/other
     unit/multi
-    unit/quit
     unit/aofrw
     integration/block-repl
     integration/replication
@@ -415,14 +414,14 @@ proc read_from_test_client fd {
                 puts "\n #*#*#*#* first comma:$firt_com\n"
                 if {$firt_com > 0} {
                     set cmd_name [string range $data 21 [expr {$firt_com-2}]]
+                    set cmd_name_uper [string toupper $cmd_name]
 
-                    set ret [lsearch $::unsupported_command $cmd_name]
-                    set spret [lsearch $::supported_command $cmd_name]
-                    puts "#########unsupported cmd: $cmd_name,ret:$ret"
+                    set ret [lsearch $::unsupported_command $cmd_name_uper]
+                    set spret [lsearch $::supported_command $cmd_name_uper]
                     # 如果supported_command 列表中有该命令则不添加不支持列表
                     if {$ret == -1} {
                         if {$spret == -1} {
-                            lappend ::unsupported_command $cmd_name
+                            lappend ::unsupported_command $cmd_name_uper
                             set cmd_cnt [llength $::unsupported_command]
                             #puts "unsupported command num: $cmd_cnt"
                         }
