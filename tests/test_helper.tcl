@@ -73,6 +73,10 @@ set ::unsupported_command {}
 set ::unsupported_option {}
 set ::supported_command {}
 
+
+set ::stringsup {}
+set ::stringunsup {}
+
 set ::host 127.0.0.1
 set ::port 6379; # port for external server
 set ::baseport 21111; # initial port for spawned redis servers
@@ -406,8 +410,8 @@ proc read_from_test_client fd {
         }
         incr ::ignored_count
     } elseif {$status eq {err}} {
-        if {[string match {*unknown command*} $data]} {
-            if {![string match {*Expected*} $data]} {
+        if {![string match {*Expected*} $data]} {
+            if {[string match {*unknown command*} $data]} {
                 incr ::unsupported_count
             
                 set firt_com [string first "," $data]
@@ -418,45 +422,54 @@ proc read_from_test_client fd {
 
                     set ret [lsearch $::unsupported_command $cmd_name_uper]
                     set spret [lsearch $::supported_command $cmd_name_uper]
+                    puts "#########unsupported cmd: $cmd_name_uper,ret:$ret"
                     # 如果supported_command 列表中有该命令则不添加不支持列表
                     if {$ret == -1} {
                         if {$spret == -1} {
                             lappend ::unsupported_command $cmd_name_uper
                             set cmd_cnt [llength $::unsupported_command]
                             #puts "unsupported command num: $cmd_cnt"
+                            #dict with ::result_map_unsup [get_current_cmd_family] {lappend unsup $cmd_name_uper}
+                            lappend ::{[get_current_cmd_family]unsup} $cmd_name_uper
                         }
                     }
                 }
-            }
-        } elseif {[string match {*Unsupported CONFIG parameter*} $data]} {
-            set option_name [string range $data 34 end]
-            set ret2 [lsearch $::unsupported_option $option_name]
-            #puts "\n####CCCCCCCCCCCCCCCC#####unsupported cmd: $option_name,ret:$ret2\n"
-            if {$ret2 == -1} {
-                lappend ::unsupported_option $option_name
-                set opt_cnt [llength $::unsupported_option]
-                #puts "unsupported option num: $opt_cnt"
-            }
-        } elseif {[string match {*unsupported command*} $data]} {
-            if {![string match {*Expected*} $data]} {
+            } elseif {[string match {*Unsupported CONFIG parameter*} $data]} {
+                set option_name [string range $data 34 end]
+                set ret2 [lsearch $::unsupported_option $option_name]
+                #puts "\n####CCCCCCCCCCCCCCCC#####unsupported cmd: $option_name,ret:$ret2\n"
+                if {$ret2 == -1} {
+                    lappend ::unsupported_option $option_name
+                    set opt_cnt [llength $::unsupported_option]
+                    #puts "unsupported option num: $opt_cnt"
+                }
+            } elseif {[string match {*unsupported command*} $data]} {
                 incr ::unsupported_count
             
                 set cmd_name [string range $data 36 end-1]
+                set cmd_name_uper [string toupper $cmd_name]
 
-                set ret [lsearch $::unsupported_command $cmd_name]
-                set spret [lsearch $::supported_command $cmd_name]
-                puts "#########unsupported cmd: $cmd_name,ret:$ret"
+                set ret [lsearch $::unsupported_command $cmd_name_uper]
+                set spret [lsearch $::supported_command $cmd_name_uper]
+                puts "#########unsupported cmd: $cmd_name_uper,ret:$ret"
                 # 如果supported_command 列表中有该命令则不添加不支持列表
                 if {$ret == -1} {
                     if {$spret == -1} {
-                        lappend ::unsupported_command $cmd_name
+                        lappend ::unsupported_command $cmd_name_uper
                         set cmd_cnt [llength $::unsupported_command]
                         #puts "unsupported command num: $cmd_cnt"
+                        #dict with ::result_map_unsup [get_current_cmd_family] {lappend unsup $cmd_name_uper}
+                        set save_list [get_current_cmd_family]
+                        set prefix_unsup "unsup"
+                        append save_list $prefix_unsup
+                        puts "^^^^75656^^^^^save list: $save_list"
+                        lappend ::$save_list $cmd_name_uper
+                        puts "^^^^^^6666^^^^^^ $::stringunsup"
                     }
                 }
+            } else {
+                    puts "command return unexcepted result"
             }
-        } else {
-                puts "command return unexcepted result"
         }
 
         incr ::err_count
@@ -498,6 +511,14 @@ proc read_from_test_client fd {
             puts "\[$status\]: $data"
         }
     }
+}
+
+proc get_current_cmd_family {} {
+    set cmd_family_ful [lindex $::all_tests [expr {$::next_test -1}]]
+    set last_slash [expr {[string last "/" $cmd_family_ful]+1}] 
+    set cmd_family [string range $cmd_family_ful $last_slash end]
+    puts "######ffffff###cmd family: $cmd_family\n"
+    return $cmd_family
 }
 
 proc show_clients_state {} {
@@ -602,9 +623,9 @@ proc the_end {} {
         ignored_count:$::ignored_count, skip_count:$::skip_count\n"
         puts "\n total cmd:$total_cmd,support $sup_len, unsupport $unsup_len \n"
 
-        puts "\n[colorstr red $::err_count]/[expr {$::err_count+ $::exception_count+ $::ok_count}] tests failed\n"
-        puts "\n[colorstr cyan $::ignored_count]/[expr {$::err_count+ $::exception_count+ $::ok_count+$::ignored_count}] tests ignored\n"
-        puts "\n[colorstr red $unsup_len]/$total_cmd command unsupported(maybe repeated)\n"
+        puts "[colorstr red $::err_count]/[expr {$::err_count+ $::exception_count+ $::ok_count}] tests failed"
+        puts "[colorstr cyan $::ignored_count]/[expr {$::err_count+ $::exception_count+ $::ok_count+$::ignored_count}] tests ignored"
+        puts "[colorstr red $unsup_len]/$total_cmd command unsupported(maybe repeated)\n"
 
         puts "$unsup_len unsupported commands: \n"
         foreach cmd $::unsupported_command {
