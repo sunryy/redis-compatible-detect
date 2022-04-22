@@ -218,24 +218,6 @@ start_server {tags {"other"}} {
         lappend res [r get foo]
     } {12 12}
 
-    test {APPEND fuzzing} {
-        set err {}
-        foreach type {binary alpha compr} {
-            set buf {}
-            r del x
-            for {set i 0} {$i < 1000} {incr i} {
-                set bin [randstring 0 10 $type]
-                append buf $bin
-                r append x $bin
-            }
-            if {$buf != [r get x]} {
-                set err "Expected '$buf' found '[r get x]'"
-                break
-            }
-        }
-        set _ $err
-    } {}
-
     # Leave the user with a clean DB before to exit
     test {FLUSHDB} {
         set aux {}

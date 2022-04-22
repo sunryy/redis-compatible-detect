@@ -37,23 +37,6 @@ start_server {tags {"string"}} {
             set _ $err
         } {}
 
-        test {SET 10000 numeric keys and access all them in reverse order} {
-            r flushdb
-            set err {}
-            for {set x 0} {$x < 10000} {incr x} {
-                r set $x $x
-            }
-            set sum 0
-            for {set x 9999} {$x >= 0} {incr x -1} {
-                set val [r get $x]
-                if {$val ne $x} {
-                    set err "Element at position $x is $val instead of $x"
-                    break
-                }
-            }
-            set _ $err
-        } {}
-
         test {DBSIZE should be 10000 now} {
             r dbsize
         } {10000}
@@ -76,30 +59,6 @@ start_server {tags {"string"}} {
         r expire x 10000
         assert_equal 0 [r setnx x 20]
         assert_equal 10 [r get x]
-    }
-
-    test "SETNX against expired volatile key" {
-        # Make it very unlikely for the key this test uses to be expired by the
-        # active expiry cycle. This is tightly coupled to the implementation of
-        # active expiry and dbAdd() but currently the only way to test that
-        # SETNX expires a key when it should have been.
-        for {set x 0} {$x < 9999} {incr x} {
-            r setex key-$x 3600 value
-        }
-
-        # This will be one of 10000 expiring keys. A cycle is executed every
-        # 100ms, sampling 10 keys for being expired or not.  This key will be
-        # expired for at most 1s when we wait 2s, resulting in a total sample
-        # of 100 keys. The probability of the success of this test being a
-        # false positive is therefore approx. 1%.
-        r set x 10
-        r expire x 1
-
-        # Wait for the key to expire
-        after 2000
-
-        assert_equal 1 [r setnx x 20]
-        assert_equal 20 [r get x]
     }
 
     test "GETEX EX option" {
@@ -295,24 +254,6 @@ start_server {tags {"string"}} {
         assert_error "*out of range*" {r setbit mykey 0 20}
     }
 
-    test "SETBIT fuzzing" {
-        set str ""
-        set len [expr 256*8]
-        r del mykey
-
-        for {set i 0} {$i < 2000} {incr i} {
-            set bitnum [randomInt $len]
-            set bitval [randomInt 2]
-            set fmt [format "%%-%ds%%d%%-s" $bitnum]
-            set head [string range $str 0 $bitnum-1]
-            set tail [string range $str $bitnum+1 end]
-            set str [string map {" " 0} [format $fmt $head $bitval $tail]]
-
-            r setbit mykey $bitnum $bitval
-            assert_equal [binary format B* $str] [r get mykey]
-        }
-    }
-
     test "GETBIT against non-existing key" {
         r del mykey
         assert_equal 0 [r getbit mykey 0]
@@ -449,17 +390,6 @@ start_server {tags {"string"}} {
         assert_equal "1234" [r getrange mykey -5000 10000]
     }
 
-    test "GETRANGE fuzzing" {
-        for {set i 0} {$i < 1000} {incr i} {
-            r set bin [set bin [randstring 0 1024 binary]]
-            set _start [set start [randomInt 1500]]
-            set _end [set end [randomInt 1500]]
-            if {$_start < 0} {set _start "end-[abs($_start)-1]"}
-            if {$_end < 0} {set _end "end-[abs($_end)-1]"}
-            assert_equal [string range $bin $_start $_end] [r getrange bin $start $end]
-        }
-    }
-
     test {Extended SET can detect syntax errors} {
         set e {}
         catch {r set foo bar non-existing-option} e
@@ -537,13 +467,6 @@ start_server {tags {"string"}} {
     test {Extended SET EX option} {
         r del foo
         r set foo bar ex 10
-        set ttl [r ttl foo]
-        assert {$ttl <= 10 && $ttl > 5}
-    }
-
-    test {Extended SET PX option} {
-        r del foo
-        r set foo bar px 10000
         set ttl [r ttl foo]
         assert {$ttl <= 10 && $ttl > 5}
     }

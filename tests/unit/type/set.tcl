@@ -299,32 +299,6 @@ start_server {
         r sdiff set1 set1
     } {}
 
-    test "SDIFF fuzzing" {
-        for {set j 0} {$j < 100} {incr j} {
-            unset -nocomplain s
-            array set s {}
-            set args {}
-            set num_sets [expr {[randomInt 10]+1}]
-            for {set i 0} {$i < $num_sets} {incr i} {
-                set num_elements [randomInt 100]
-                r del set_$i{t}
-                lappend args set_$i{t}
-                while {$num_elements} {
-                    set ele [randomValue]
-                    r sadd set_$i{t} $ele
-                    if {$i == 0} {
-                        set s($ele) x
-                    } else {
-                        unset -nocomplain s($ele)
-                    }
-                    incr num_elements -1
-                }
-            }
-            set result [lsort [r sdiff {*}$args]]
-            assert_equal $result [lsort [array names s]]
-        }
-    }
-
     test "SDIFF against non-set should throw error" {
         # with an empty set
         r set key1{t} x
@@ -567,18 +541,6 @@ start_server {
         }
     }
 
-    foreach {type contents} {
-        hashtable {a b c d e f g h i j k l m n o p q r s t u v w x y z} 
-        intset {1 10 11 12 13 14 15 16 17 18 19 2 20 21 22 23 24 25 26 3 4 5 6 7 8 9}
-    } {
-        test "SPOP with <count>" {
-            create_set myset $contents
-            assert_encoding $type myset
-            assert_equal $contents [lsort [concat [r spop myset 11] [r spop myset 9] [r spop myset 0] [r spop myset 4] [r spop myset 1] [r spop myset 0] [r spop myset 1] [r spop myset 0]]]
-            assert_equal 0 [r scard myset]
-        }
-    }
-
     # As seen in intsetRandomMembers
     test "SPOP using integers, testing Knuth's and Floyd's algorithm" {
         create_set myset {1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20}
@@ -650,152 +612,6 @@ start_server {
 
     r readraw 0
 
-    foreach {type contents} {
-        hashtable {
-            1 5 10 50 125 50000 33959417 4775547 65434162
-            12098459 427716 483706 2726473884 72615637475
-            MARY PATRICIA LINDA BARBARA ELIZABETH JENNIFER MARIA
-            SUSAN MARGARET DOROTHY LISA NANCY KAREN BETTY HELEN
-            SANDRA DONNA CAROL RUTH SHARON MICHELLE LAURA SARAH
-            KIMBERLY DEBORAH JESSICA SHIRLEY CYNTHIA ANGELA MELISSA
-            BRENDA AMY ANNA REBECCA VIRGINIA KATHLEEN
-        }
-        intset {
-            0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
-            20 21 22 23 24 25 26 27 28 29
-            30 31 32 33 34 35 36 37 38 39
-            40 41 42 43 44 45 46 47 48 49
-        }
-    } {
-        test "SRANDMEMBER with <count> - $type" {
-            create_set myset $contents
-            unset -nocomplain myset
-            array set myset {}
-            foreach ele [r smembers myset] {
-                set myset($ele) 1
-            }
-            assert_equal [lsort $contents] [lsort [array names myset]]
-
-            # Make sure that a count of 0 is handled correctly.
-            assert_equal [r srandmember myset 0] {}
-
-            # We'll stress different parts of the code, see the implementation
-            # of SRANDMEMBER for more information, but basically there are
-            # four different code paths.
-            #
-            # PATH 1: Use negative count.
-            #
-            # 1) Check that it returns repeated elements.
-            set res [r srandmember myset -100]
-            assert_equal [llength $res] 100
-
-            # 2) Check that all the elements actually belong to the
-            # original set.
-            foreach ele $res {
-                assert {[info exists myset($ele)]}
-            }
-
-            # 3) Check that eventually all the elements are returned.
-            unset -nocomplain auxset
-            set iterations 1000
-            while {$iterations != 0} {
-                incr iterations -1
-                set res [r srandmember myset -10]
-                foreach ele $res {
-                    set auxset($ele) 1
-                }
-                if {[lsort [array names myset]] eq
-                    [lsort [array names auxset]]} {
-                    break;
-                }
-            }
-            assert {$iterations != 0}
-
-            # PATH 2: positive count (unique behavior) with requested size
-            # equal or greater than set size.
-            foreach size {50 100} {
-                set res [r srandmember myset $size]
-                assert_equal [llength $res] 50
-                assert_equal [lsort $res] [lsort [array names myset]]
-            }
-
-            # PATH 3: Ask almost as elements as there are in the set.
-            # In this case the implementation will duplicate the original
-            # set and will remove random elements up to the requested size.
-            #
-            # PATH 4: Ask a number of elements definitely smaller than
-            # the set size.
-            #
-            # We can test both the code paths just changing the size but
-            # using the same code.
-
-            foreach size {45 5} {
-                set res [r srandmember myset $size]
-                assert_equal [llength $res] $size
-
-                # 1) Check that all the elements actually belong to the
-                # original set.
-                foreach ele $res {
-                    assert {[info exists myset($ele)]}
-                }
-
-                # 2) Check that eventually all the elements are returned.
-                unset -nocomplain auxset
-                set iterations 1000
-                while {$iterations != 0} {
-                    incr iterations -1
-                    set res [r srandmember myset $size]
-                    foreach ele $res {
-                        set auxset($ele) 1
-                    }
-                    if {[lsort [array names myset]] eq
-                        [lsort [array names auxset]]} {
-                        break;
-                    }
-                }
-                assert {$iterations != 0}
-            }
-        }
-    }
-
-    foreach {type contents} {
-        hashtable {
-            1 5 10 50 125
-            MARY PATRICIA LINDA BARBARA ELIZABETH
-        }
-        intset {
-            0 1 2 3 4 5 6 7 8 9
-        }
-    } {
-        test "SRANDMEMBER histogram distribution - $type" {
-            create_set myset $contents
-            unset -nocomplain myset
-            array set myset {}
-            foreach ele [r smembers myset] {
-                set myset($ele) 1
-            }
-
-            # Use negative count (PATH 1).
-            # df = 9, 40 means 0.00001 probability
-            set res [r srandmember myset -1000]
-            assert_lessthan [chi_square_value $res] 40
-
-            # Use positive count (both PATH 3 and PATH 4).
-            foreach size {8 2} {
-                unset -nocomplain allkey
-                set iterations [expr {1000 / $size}]
-                while {$iterations != 0} {
-                    incr iterations -1
-                    set res [r srandmember myset $size]
-                    foreach ele $res {
-                        lappend allkey $ele
-                    }
-                }
-                # df = 9, 40 means 0.00001 probability
-                assert_lessthan [chi_square_value $allkey] 40
-            }
-        }
-    }
 
     proc setup_move {} {
         r del myset3{t} myset4{t}
@@ -895,42 +711,6 @@ start_server {
         set res [r scard dstset{t}]
         assert_equal $res 2
         #$r2 close
-    }
-
-    tags {slow} {
-        test {intsets implementation stress testing} {
-            for {set j 0} {$j < 20} {incr j} {
-                unset -nocomplain s
-                array set s {}
-                r del s
-                set len [randomInt 1024]
-                for {set i 0} {$i < $len} {incr i} {
-                    randpath {
-                        set data [randomInt 65536]
-                    } {
-                        set data [randomInt 4294967296]
-                    } {
-                        set data [randomInt 18446744073709551616]
-                    }
-                    set s($data) {}
-                    r sadd s $data
-                }
-                assert_equal [lsort [r smembers s]] [lsort [array names s]]
-                set len [array size s]
-                for {set i 0} {$i < $len} {incr i} {
-                    set e [r spop s]
-                    if {![info exists s($e)]} {
-                        puts "Can't find '$e' on local array"
-                        puts "Local array: [lsort [r smembers s]]"
-                        puts "Remote array: [lsort [array names s]]"
-                        error "exception"
-                    }
-                    array unset s $e
-                }
-                assert_equal [r scard s] 0
-                assert_equal [array size s] 0
-            }
-        }
     }
 }
 

@@ -32,30 +32,6 @@ start_server {
         set _ $result
     }
 
-    foreach {num cmd enc title} {
-        16 lpush quicklist "Old Ziplist"
-        1000 lpush quicklist "Old Linked list"
-        10000 lpush quicklist "Old Big Linked list"
-        16 sadd intset "Intset"
-        1000 sadd hashtable "Hash table"
-        10000 sadd hashtable "Big Hash table"
-    } {
-        set result [create_random_dataset $num $cmd]
-        assert_encoding $enc tosort
-
-        test "$title: SORT BY key" {
-            assert_equal $result [r sort tosort BY weight_*]
-        } {} {cluster:skip}
-
-        test "$title: SORT BY key with limit" {
-            assert_equal [lrange $result 5 9] [r sort tosort BY weight_* LIMIT 5 5]
-        } {} {cluster:skip}
-
-        test "$title: SORT BY hash field" {
-            assert_equal $result [r sort tosort BY wobj_*->weight]
-        } {} {cluster:skip}
-    }
-
     set result [create_random_dataset 16 lpush]
     test "SORT GET #" {
         assert_equal [lsort -integer $result] [r sort tosort GET #]
@@ -273,56 +249,4 @@ start_server {
         set e
     } {ERR syntax error}
 
-    tags {"slow"} {
-        set num 100
-        set res [create_random_dataset $num lpush]
-
-        test "SORT speed, $num element list BY key, 100 times" {
-            set start [clock clicks -milliseconds]
-            for {set i 0} {$i < 100} {incr i} {
-                set sorted [r sort tosort BY weight_* LIMIT 0 10]
-            }
-            set elapsed [expr [clock clicks -milliseconds]-$start]
-            if {$::verbose} {
-                puts -nonewline "\n  Average time to sort: [expr double($elapsed)/100] milliseconds "
-                flush stdout
-            }
-        } {} {cluster:skip}
-
-        test "SORT speed, $num element list BY hash field, 100 times" {
-            set start [clock clicks -milliseconds]
-            for {set i 0} {$i < 100} {incr i} {
-                set sorted [r sort tosort BY wobj_*->weight LIMIT 0 10]
-            }
-            set elapsed [expr [clock clicks -milliseconds]-$start]
-            if {$::verbose} {
-                puts -nonewline "\n  Average time to sort: [expr double($elapsed)/100] milliseconds "
-                flush stdout
-            }
-        } {} {cluster:skip}
-
-        test "SORT speed, $num element list directly, 100 times" {
-            set start [clock clicks -milliseconds]
-            for {set i 0} {$i < 100} {incr i} {
-                set sorted [r sort tosort LIMIT 0 10]
-            }
-            set elapsed [expr [clock clicks -milliseconds]-$start]
-            if {$::verbose} {
-                puts -nonewline "\n  Average time to sort: [expr double($elapsed)/100] milliseconds "
-                flush stdout
-            }
-        }
-
-        test "SORT speed, $num element list BY <const>, 100 times" {
-            set start [clock clicks -milliseconds]
-            for {set i 0} {$i < 100} {incr i} {
-                set sorted [r sort tosort BY nokey LIMIT 0 10]
-            }
-            set elapsed [expr [clock clicks -milliseconds]-$start]
-            if {$::verbose} {
-                puts -nonewline "\n  Average time to sort: [expr double($elapsed)/100] milliseconds "
-                flush stdout
-            }
-        } {} {cluster:skip}
-    }
 }

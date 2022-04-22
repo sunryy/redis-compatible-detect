@@ -62,11 +62,13 @@ set ::all_tests {
 }
 # Index to the next test to run in the ::all_tests list.
 set ::next_test 0
+set ::test_count 0
 set ::err_count 0
 set ::ok_count 0
 set ::exception_count 0
 set ::unsupported_count 0
 set ::ignored_count 0
+set ::skip_count 0
 
 set ::unsupported_command {}
 set ::unsupported_option {}
@@ -387,7 +389,7 @@ proc read_from_test_client fd {
                 if {$ret1 == -1} {
                     #if {$uspret1 == -1} {
                         lappend ::supported_command [string range $data 0 $fspace_index]
-                        puts "\n@#@#@#@#@#@#@#@ok response first space pos:$fspace_index, sup_cmd_name:$::supported_command\n"
+                        #puts "\n@#@#@#@#@#@#@#@ok response first space pos:$fspace_index, sup_cmd_name:$::supported_command\n"
                     #}
                 }
             }
@@ -395,6 +397,7 @@ proc read_from_test_client fd {
 
         set ::active_clients_task($fd) "(OK) $data"
     } elseif {$status eq {skip}} {
+        incr ::skip_count
         if {!$::quiet} {
             puts "\[[colorstr yellow $status]\]: $data"
         }
@@ -404,21 +407,25 @@ proc read_from_test_client fd {
         }
         incr ::ignored_count
     } elseif {$status eq {err}} {
-        if {[string match {*unknown*command*} $data]} {
+        if {[string match {*unknown command*} $data]} {
             if {![string match {*Expected*} $data]} {
                 incr ::unsupported_count
             
-                set err_string $data
-                set cmd_name [string range $err_string 36 end-1]
-                set ret [lsearch $::unsupported_command $cmd_name]
-                set spret [lsearch $::supported_command $cmd_name]
-                #puts "#########unsupported cmd: $cmd_name,ret:$ret"
-                # 如果supported_command 列表中有该命令则不添加不支持列表
-                if {$ret == -1} {
-                    if {$spret == -1} {
-                        lappend ::unsupported_command $cmd_name
-                        set cmd_cnt [llength $::unsupported_command]
-                        #puts "unsupported command num: $cmd_cnt"
+                set firt_com [string first "," $data]
+                puts "\n #*#*#*#* first comma:$firt_com\n"
+                if {$firt_com > 0} {
+                    set cmd_name [string range $data 21 [expr {$firt_com-2}]]
+
+                    set ret [lsearch $::unsupported_command $cmd_name]
+                    set spret [lsearch $::supported_command $cmd_name]
+                    puts "#########unsupported cmd: $cmd_name,ret:$ret"
+                    # 如果supported_command 列表中有该命令则不添加不支持列表
+                    if {$ret == -1} {
+                        if {$spret == -1} {
+                            lappend ::unsupported_command $cmd_name
+                            set cmd_cnt [llength $::unsupported_command]
+                            #puts "unsupported command num: $cmd_cnt"
+                        }
                     }
                 }
             }
@@ -430,6 +437,24 @@ proc read_from_test_client fd {
                 lappend ::unsupported_option $option_name
                 set opt_cnt [llength $::unsupported_option]
                 #puts "unsupported option num: $opt_cnt"
+            }
+        } elseif {[string match {*unsupported command*} $data]} {
+            if {![string match {*Expected*} $data]} {
+                incr ::unsupported_count
+            
+                set cmd_name [string range $data 36 end-1]
+
+                set ret [lsearch $::unsupported_command $cmd_name]
+                set spret [lsearch $::supported_command $cmd_name]
+                puts "#########unsupported cmd: $cmd_name,ret:$ret"
+                # 如果supported_command 列表中有该命令则不添加不支持列表
+                if {$ret == -1} {
+                    if {$spret == -1} {
+                        lappend ::unsupported_command $cmd_name
+                        set cmd_cnt [llength $::unsupported_command]
+                        #puts "unsupported command num: $cmd_cnt"
+                    }
+                }
             }
         } else {
                 puts "command return unexcepted result"
@@ -455,6 +480,7 @@ proc read_from_test_client fd {
         #force_kill_all_servers
         #exit 1
     } elseif {$status eq {testing}} {
+        incr ::test_count
         set ::active_clients_task($fd) "(IN PROGRESS) $data"
     } elseif {$status eq {server-spawning}} {
         set ::active_clients_task($fd) "(SPAWNING SERVER) $data"
@@ -570,6 +596,11 @@ proc the_end {} {
         set sup_len [llength $::supported_command]
         set unsup_len [llength $::unsupported_command]
         set total_cmd [expr {$sup_len+$unsup_len}]
+        set total_test [expr {$::err_count+ $::exception_count+ $::ok_count}]
+        
+
+        puts "\n test cnt $::test_count,run total test:$total_test,err_count $::err_count, exception_count $::exception_count,ok_count $::ok_count, \
+        ignored_count:$::ignored_count, skip_count:$::skip_count\n"
         puts "\n total cmd:$total_cmd,support $sup_len, unsupport $unsup_len \n"
 
         puts "\n[colorstr red $::err_count]/[expr {$::err_count+ $::exception_count+ $::ok_count}] tests failed\n"

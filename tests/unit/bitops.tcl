@@ -73,43 +73,6 @@ start_server {tags {"bitops"}} {
         }
     }
 
-    test {BITCOUNT fuzzing without start/end} {
-        for {set j 0} {$j < 100} {incr j} {
-            set str [randstring 0 3000]
-            r set str $str
-            set count [count_bits $str]
-            assert {[r bitcount str] == $count}
-            assert {[r bitcount str 0 -1 bit] == $count}
-        }
-    }
-
-    test {BITCOUNT fuzzing with start/end} {
-        for {set j 0} {$j < 100} {incr j} {
-            set str [randstring 0 3000]
-            r set str $str
-            set l [string length $str]
-            set start [randomInt $l]
-            set end [randomInt $l]
-            if {$start > $end} {
-                # Swap start and end
-                lassign [list $end $start] start end
-            }
-            assert {[r bitcount str $start $end] == [count_bits [string range $str $start $end]]}
-        }
-
-        for {set j 0} {$j < 100} {incr j} {
-            set str [randstring 0 3000]
-            r set str $str
-            set l [expr [string length $str] * 8]
-            set start [randomInt $l]
-            set end [randomInt $l]
-            if {$start > $end} {
-                # Swap start and end
-                lassign [list $end $start] start end
-            }
-            assert {[r bitcount str $start $end bit] == [count_bits_start_end $str $start $end]}
-        }
-    }
 
     test {BITCOUNT with start, end} {
         set s "foobar"
@@ -205,35 +168,6 @@ start_server {tags {"bitops"}} {
         r bitop xor res3{t} a{t} b{t}
         list [r get res1{t}] [r get res2{t}] [r get res3{t}]
     } [list "\x01\x02\xff\x00" "\x01\x02\xff\xff" "\x00\x00\x00\xff"]
-
-    foreach op {and or xor} {
-        test "BITOP $op fuzzing" {
-            for {set i 0} {$i < 10} {incr i} {
-                r flushall
-                set vec {}
-                set veckeys {}
-                set numvec [expr {[randomInt 10]+1}]
-                for {set j 0} {$j < $numvec} {incr j} {
-                    set str [randstring 0 1000]
-                    lappend vec $str
-                    lappend veckeys vector_$j{t}
-                    r set vector_$j{t} $str
-                }
-                r bitop $op target{t} {*}$veckeys
-                assert_equal [r get target{t}] [simulate_bit_op $op {*}$vec]
-            }
-        }
-    }
-
-    test {BITOP NOT fuzzing} {
-        for {set i 0} {$i < 10} {incr i} {
-            r flushall
-            set str [randstring 0 1000]
-            r set str{t} $str
-            r bitop not target{t} str{t}
-            assert_equal [r get target{t}] [simulate_bit_op not $str]
-        }
-    }
 
     test {BITOP with integer encoded source objects} {
         r set a{t} 1
@@ -433,112 +367,6 @@ start_server {tags {"bitops"}} {
         r bitfield foo3{t} incrby i5 0 1
         set dirty5 [s rdb_changes_since_last_save]
         assert {$dirty5 == $dirty4 + 2}
-    }
-
-    test {BITPOS bit=1 fuzzy testing using SETBIT} {
-        r del str
-        set max 524288; # 64k
-        set first_one_pos -1
-        for {set j 0} {$j < 1000} {incr j} {
-            assert {[r bitpos str 1] == $first_one_pos}
-            assert {[r bitpos str 1 0 -1 bit] == $first_one_pos}
-            set pos [randomInt $max]
-            r setbit str $pos 1
-            if {$first_one_pos == -1 || $first_one_pos > $pos} {
-                # Update the position of the first 1 bit in the array
-                # if the bit we set is on the left of the previous one.
-                set first_one_pos $pos
-            }
-        }
-    }
-
-    test {BITPOS bit=0 fuzzy testing using SETBIT} {
-        set max 524288; # 64k
-        set first_zero_pos $max
-        r set str [string repeat "\xff" [expr $max/8]]
-        for {set j 0} {$j < 1000} {incr j} {
-            assert {[r bitpos str 0] == $first_zero_pos}
-            if {$first_zero_pos == $max} {
-                assert {[r bitpos str 0 0 -1 bit] == -1}
-            } else {
-                assert {[r bitpos str 0 0 -1 bit] == $first_zero_pos}
-            }
-            set pos [randomInt $max]
-            r setbit str $pos 0
-            if {$first_zero_pos > $pos} {
-                # Update the position of the first 0 bit in the array
-                # if the bit we clear is on the left of the previous one.
-                set first_zero_pos $pos
-            }
-        }
-    }
-
-    # This test creates a string of 10 bytes. It has two iterations. One clears
-    # all the bits and sets just one bit and another set all the bits and clears
-    # just one bit. Each iteration loops from bit offset 0 to 79 and uses SETBIT
-    # to set the bit to 0 or 1, and then use BITPOS and BITCOUNT on a few mutations.
-    test {BITPOS/BITCOUNT fuzzy testing using SETBIT} {
-        # We have two start and end ranges, each range used to select a random
-        # position, one for start position and one for end position.
-        proc test_one {start1 end1 start2 end2 pos bit pos_type} {
-            set start [randomRange $start1 $end1]
-            set end [randomRange $start2 $end2]
-            if {$start > $end} {
-                # Swap start and end
-                lassign [list $end $start] start end
-            }
-            set startbit $start
-            set endbit $end
-            # For byte index, we need to generate the real bit index
-            if {[string equal $pos_type byte]} {
-                set startbit [expr $start << 3]
-                set endbit [expr ($end << 3) + 7]
-            }
-            # This means whether the test bit index is in the range.
-            set inrange [expr ($pos >= $startbit && $pos <= $endbit) ? 1: 0]
-            # For bitcount, there are four different results.
-            # $inrange == 0 && $bit == 0, all bits in the range are set, so $endbit - $startbit + 1
-            # $inrange == 0 && $bit == 1, all bits in the range are clear, so 0
-            # $inrange == 1 && $bit == 0, all bits in the range are set but one, so $endbit - $startbit
-            # $inrange == 1 && $bit == 1, all bits in the range are clear but one, so 1
-            set res_count [expr ($endbit - $startbit + 1) * (1 - $bit) + $inrange * [expr $bit ? 1 : -1]]
-            assert {[r bitpos str $bit $start $end $pos_type] == [expr $inrange ? $pos : -1]}
-            assert {[r bitcount str $start $end $pos_type] == $res_count}
-        }
-
-        r del str
-        set max 80;
-        r setbit str [expr $max - 1] 0
-        set bytes [expr $max >> 3]
-        # First iteration sets all bits to 1, then set bit to 0 from 0 to max - 1
-        # Second iteration sets all bits to 0, then set bit to 1 from 0 to max - 1
-        for {set bit 0} {$bit < 2} {incr bit} {
-            r bitop not str str
-            for {set j 0} {$j < $max} {incr j} {
-                r setbit str $j $bit
-
-                # First iteration tests byte index and second iteration tests bit index.
-                foreach {curr end pos_type} [list [expr $j >> 3] $bytes byte $j $max bit] {
-                    # start==end set to bit position
-                    test_one $curr $curr $curr $curr $j $bit $pos_type
-                    # Both start and end are before bit position
-                    if {$curr > 0} {
-                        test_one 0 $curr 0 $curr $j $bit $pos_type
-                    }
-                    # Both start and end are after bit position
-                    if {$curr < [expr $end - 1]} {
-                        test_one [expr $curr + 1] $end [expr $curr + 1] $end $j $bit $pos_type
-                    }
-                    # start is before and end is after bit position
-                    if {$curr > 0 && $curr < [expr $end - 1]} {
-                        test_one 0 $curr [expr $curr +1] $end $j $bit $pos_type
-                    }
-                }
-
-                # restore bit
-                r setbit str $j [expr 1 - $bit]
-            }
-        }
     }
 
     test "BIT pos larger than UINT_MAX" {
