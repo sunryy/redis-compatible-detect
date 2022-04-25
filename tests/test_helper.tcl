@@ -13,51 +13,19 @@ source tests/support/test.tcl
 source tests/support/util.tcl
 
 set ::all_tests {
-    unit/dump
-    unit/auth
     unit/keyspace
-    unit/scan
     unit/type/string
-    unit/type/incr
     unit/type/list
     unit/type/set
-    unit/type/zset
-    unit/type/hash
-    unit/type/stream
-    unit/type/stream-cgroups
-    unit/sort
-    unit/expire
-    unit/other
-    unit/multi
-    unit/aofrw
-    integration/block-repl
-    integration/replication
-    integration/replication-2
-    integration/replication-3
-    integration/replication-4
-    integration/replication-psync
-    integration/aof
-    integration/rdb
-    integration/convert-zipmap-hash-on-load
-    integration/logging
-    integration/psync2
-    integration/psync2-reg
-    unit/pubsub
-    unit/slowlog
     unit/scripting
-    unit/maxmemory
-    unit/introspection
-    unit/introspection-2
-    unit/limits
-    unit/obuf-limits
-    unit/bitops
-    unit/bitfield
+    unit/type/stream
+    unit/type/hash
     unit/geo
-    unit/memefficiency
     unit/hyperloglog
-    unit/lazyfree
-    unit/wait
-    unit/pendingquerybuf
+    unit/server
+    unit/transaction
+    unit/connection
+
 }
 # Index to the next test to run in the ::all_tests list.
 set ::next_test 0
@@ -76,6 +44,29 @@ set ::supported_command {}
 
 set ::stringsup {}
 set ::stringunsup {}
+set ::setsup {}
+set ::setunsup {}
+set ::listsup {}
+set ::listunsup {}
+set ::scriptingsup {}
+set ::scriptingunsup {}
+set ::streamsup {}
+set ::streamunsup {}
+set ::hashsup {}
+set ::hashunsup {}
+set ::geosup {}
+set ::geounsup {}
+set ::keyspacesup {}
+set ::keyspaceunsup {}
+set ::hyperloglogsup {}
+set ::hyperloglogunsup {}
+set ::serversup {}
+set ::serverunsup {}
+set ::transactionsup {}
+set ::transactionunsup {}
+set ::connectionsup {}
+set ::connectionunsup {}
+
 
 set ::host 127.0.0.1
 set ::port 6379; # port for external server
@@ -380,24 +371,27 @@ proc read_from_test_client fd {
         }
         #data中第一个词如果为全大写则为实际命令名称
         set fspace_index [string first " " $data ]
-        #puts "\n@#@#@#@#@#@#@#@ok response first space pos:$fspace_index\n"
         if {$fspace_index > 0} {
             set sup_cmd_name [string range $data 0 $fspace_index]
-            set tsup_cmd_name [string toupper $sup_cmd_name]
-            #puts "@#@#@#@#@#@#@#@@#@#@#@#@#@#@#@trans cmd name:$tsup_cmd_name"
-            if {[string match $tsup_cmd_name $sup_cmd_name]} {
-                set ret1 [lsearch $::supported_command $sup_cmd_name]
-                #puts "######*****###supported cmd: $sup_cmd_name,ret:$ret1"
-                set uspret1 [lsearch $::unsupported_command $sup_cmd_name]
-                if {$ret1 == -1} {
-                    #if {$uspret1 == -1} {
-                        lappend ::supported_command [string range $data 0 $fspace_index]
-                        #puts "\n@#@#@#@#@#@#@#@ok response first space pos:$fspace_index, sup_cmd_name:$::supported_command\n"
-                    #}
+            if {![is_startwith_digit $data]} {
+                #命令名全部转为大写
+                set tsup_cmd_name [string toupper $sup_cmd_name] 
+                if {[string match $tsup_cmd_name $sup_cmd_name]} {
+                    set ret1 [lsearch $::supported_command $sup_cmd_name]
+                    #set uspret1 [lsearch $::unsupported_command $sup_cmd_name]
+                    if {$ret1 == -1} {
+                        lappend ::supported_command $sup_cmd_name
+                        set save_list [get_current_cmd_family]
+                        set prefix_sup "sup"
+                        #拼接命令簇数组名
+                        append save_list $prefix_sup
+                        lappend ::$save_list $sup_cmd_name
+                    }
                 }
             }
         }
-
+        puts "\n^^^^^^^^^^^^ok cnt: $::ok_count\n"
+  
         set ::active_clients_task($fd) "(OK) $data"
     } elseif {$status eq {skip}} {
         incr ::skip_count
@@ -410,40 +404,42 @@ proc read_from_test_client fd {
         }
         incr ::ignored_count
     } elseif {$status eq {err}} {
-        if {![string match {*Expected*} $data]} {
-            if {[string match {*unknown command*} $data]} {
+        if {![string match {*Expected*} $data]} {   #含有Expected的是执行结果与预期不符
+            if {[is_ali_unsupported_response $data]} { 
                 incr ::unsupported_count
             
                 set firt_com [string first "," $data]
-                puts "\n #*#*#*#* first comma:$firt_com\n"
                 if {$firt_com > 0} {
                     set cmd_name [string range $data 21 [expr {$firt_com-2}]]
                     set cmd_name_uper [string toupper $cmd_name]
 
                     set ret [lsearch $::unsupported_command $cmd_name_uper]
                     set spret [lsearch $::supported_command $cmd_name_uper]
-                    puts "#########unsupported cmd: $cmd_name_uper,ret:$ret"
                     # 如果supported_command 列表中有该命令则不添加不支持列表
                     if {$ret == -1} {
                         if {$spret == -1} {
                             lappend ::unsupported_command $cmd_name_uper
                             set cmd_cnt [llength $::unsupported_command]
-                            #puts "unsupported command num: $cmd_cnt"
                             #dict with ::result_map_unsup [get_current_cmd_family] {lappend unsup $cmd_name_uper}
                             lappend ::{[get_current_cmd_family]unsup} $cmd_name_uper
+
+                            set save_list [get_current_cmd_family]
+                            set prefix_unsup "unsup"
+                            #拼接命令簇数组名
+                            append save_list $prefix_unsup
+                            lappend ::$save_list $cmd_name_uper
                         }
                     }
                 }
             } elseif {[string match {*Unsupported CONFIG parameter*} $data]} {
                 set option_name [string range $data 34 end]
                 set ret2 [lsearch $::unsupported_option $option_name]
-                #puts "\n####CCCCCCCCCCCCCCCC#####unsupported cmd: $option_name,ret:$ret2\n"
                 if {$ret2 == -1} {
                     lappend ::unsupported_option $option_name
                     set opt_cnt [llength $::unsupported_option]
                     #puts "unsupported option num: $opt_cnt"
                 }
-            } elseif {[string match {*unsupported command*} $data]} {
+            } elseif {[is_origin_unsupported_response $data]} {   
                 incr ::unsupported_count
             
                 set cmd_name [string range $data 36 end-1]
@@ -451,20 +447,16 @@ proc read_from_test_client fd {
 
                 set ret [lsearch $::unsupported_command $cmd_name_uper]
                 set spret [lsearch $::supported_command $cmd_name_uper]
-                puts "#########unsupported cmd: $cmd_name_uper,ret:$ret"
                 # 如果supported_command 列表中有该命令则不添加不支持列表
                 if {$ret == -1} {
                     if {$spret == -1} {
                         lappend ::unsupported_command $cmd_name_uper
                         set cmd_cnt [llength $::unsupported_command]
-                        #puts "unsupported command num: $cmd_cnt"
                         #dict with ::result_map_unsup [get_current_cmd_family] {lappend unsup $cmd_name_uper}
                         set save_list [get_current_cmd_family]
                         set prefix_unsup "unsup"
                         append save_list $prefix_unsup
-                        puts "^^^^75656^^^^^save list: $save_list"
                         lappend ::$save_list $cmd_name_uper
-                        puts "^^^^^^6666^^^^^^ $::stringunsup"
                     }
                 }
             } else {
@@ -511,6 +503,30 @@ proc read_from_test_client fd {
             puts "\[$status\]: $data"
         }
     }
+}
+
+#ali tair不支持的命令结果
+proc is_ali_unsupported_response {data} {
+    if {[string match {*unknown command*} $data]} {
+        return 1
+    }
+    return 0
+}
+
+ #原生redis不支持的命令结果
+proc is_origin_unsupported_response {data} {
+    if {[string match {*unsupported command*} $data]} {
+        return 1
+    }
+    return 0
+}
+
+proc is_startwith_digit {data} {
+    set first_alp [string range $data 0 0]
+    if {[string is digit $first_alp]} {
+        return 1;
+    }
+    return 0
 }
 
 proc get_current_cmd_family {} {
@@ -612,7 +628,19 @@ proc the_end {} {
         foreach failed $::failed_tests {
             puts "*** $failed"
         }
+        print_general_result
+        print_support_detail
 
+        if {!$::dont_clean} cleanup
+        exit 1
+    } else {
+        puts "\n[colorstr bold-white {\o/}] [colorstr bold-green {All tests passed without errors!}]\n"
+        if {!$::dont_clean} cleanup
+        exit 0
+    }
+}
+
+proc print_general_result {} {
         set sup_len [llength $::supported_command]
         set unsup_len [llength $::unsupported_command]
         set total_cmd [expr {$sup_len+$unsup_len}]
@@ -644,14 +672,177 @@ proc the_end {} {
             puts "   $scmd"
         }
         puts "\n"
+}
 
-        if {!$::dont_clean} cleanup
-        exit 1
-    } else {
-        puts "\n[colorstr bold-white {\o/}] [colorstr bold-green {All tests passed without errors!}]\n"
-        if {!$::dont_clean} cleanup
-        exit 0
-    }
+proc print_support_detail {} {
+        puts "[llength $::stringsup] string supported commands: \n"
+
+        #join方式避免输出带花括号
+        foreach cmd $::stringsup {
+            puts -nonewline [join $cmd ]   
+        }
+        puts "\n"
+
+        puts "[llength $::stringunsup] string unsupported commands: \n"
+        foreach cmd $::stringunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::setsup] set supported commands: \n"
+        foreach cmd $::setsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::setunsup] set unsupported commands: \n"
+        foreach cmd $::setunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::listsup] list supported commands: \n"
+        foreach cmd $::listsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::listunsup] list unsupported commands: \n"
+        foreach cmd $::listunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+        puts "[llength $::scriptingsup] scripting supported commands: \n"
+        foreach cmd $::scriptingsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::scriptingunsup] scripting unsupported commands: \n"
+        foreach cmd $::scriptingunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::streamsup] stream supported commands: \n"
+        foreach cmd $::streamsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::streamunsup] stream unsupported commands: \n"
+        foreach cmd $::streamunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::hashsup] hash supported commands: \n"
+        foreach cmd $::hashsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::hashunsup] hash unsupported commands: \n"
+        foreach cmd $::hashunsup {
+            puts  -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::geosup] geo supported commands: \n"
+        foreach cmd $::geosup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::geounsup] geo unsupported commands: \n"
+        foreach cmd $::geounsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::keyspacesup] keyspace supported commands: \n"
+        foreach cmd $::keyspacesup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::keyspaceunsup] keyspace unsupported commands: \n"
+        foreach cmd $::keyspaceunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::hyperloglogsup] hyperloglog supported commands: \n"
+        foreach cmd $::hyperloglogsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::hyperloglogunsup] hyperloglog unsupported commands: \n"
+        foreach cmd $::hyperloglogunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::serversup] server supported commands: \n"
+        foreach cmd $::serversup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::serverunsup] server unsupported commands: \n"
+        foreach cmd $::serverunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+
+        puts "[llength $::transactionsup] transaction supported commands: \n"
+        foreach cmd $::transactionsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::transactionunsup] transaction unsupported commands: \n"
+        foreach cmd $::transactionunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::connectionsup] connection supported commands: \n"
+        foreach cmd $::connectionsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        puts "[llength $::connectionunsup] connection unsupported commands: \n"
+        foreach cmd $::connectionunsup {
+            puts -nonewline "[join $cmd ] "
+        }
+        puts "\n"
+
+        set base_file_name "output"
+        set clock_sec [clock seconds]
+        set suffix_name ".csv"
+        append base_file_name $clock_sec
+        append base_file_name $suffix_name
+     
+        puts "####base file name :$base_file_name\n"
+
+        set outfile [open $base_file_name w+]
+        puts $outfile "命令簇,\t支持的命令 ,\t不支持的命令"
+        puts $outfile "keyspace, [join $::keyspacesup], [join $::keyspaceunsup]"
+        puts $outfile "string, [join $::stringsup], [join $::stringunsup]"
+        puts $outfile "list, [join $::listsup], [join $::listunsup]"
+        puts $outfile "set, [join $::setsup], [join $::setunsup]"
+        puts $outfile "scripting, [join $::scriptingsup], [join $::scriptingunsup]"
+        puts $outfile "stream, [join $::streamsup], [join $::streamunsup]"
+        puts $outfile "hash, [join $::hashsup], [join $::hashunsup]"
+        puts $outfile "geo, [join $::geosup], [join $::geounsup]"
+        puts $outfile "hyperloglog, [join $::hyperloglogsup], [join $::hyperloglogunsup]"
+        puts $outfile "server, [join $::serversup], [join $::serverunsup]"
+        puts $outfile "transaction, [join $::transactionsup], [join $::transactionunsup]"
+        puts $outfile "connection, [join $::connectionsup], [join $::connectionunsup]"
 }
 
 # The client is not even driven (the test server is instead) as we just need

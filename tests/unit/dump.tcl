@@ -1,5 +1,6 @@
 start_server {tags {"dump"}} {
     test {DUMP / RESTORE are able to serialize / unserialize a simple key} {
+        r auth 186899slF@ 
         r set foo bar
         set encoded [r dump foo]
         r del foo

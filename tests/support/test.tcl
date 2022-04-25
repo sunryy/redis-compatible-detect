@@ -210,7 +210,7 @@ proc test {name code {okpattern undefined} {tags {}}} {
             }
         } else {
             # Re-raise, let handler up the stack take care of this.
-            puts "\n $details $::errorInfo \n"
+            #puts "\n details:$details---------- errorInfo:$::errorInfo-------error:$error \n"
 
             #error $error $::errorInfo
             #这里原来调用error是向server发送exception状态码的消息，改为发送err状态码消息，

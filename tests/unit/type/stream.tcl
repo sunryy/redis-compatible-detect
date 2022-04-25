@@ -250,12 +250,6 @@ start_server {
         assert {[r xlen mystream] == $j}
     }
 
-    test {XADD with ID 0-0} {
-        r DEL otherstream
-        catch {r XADD otherstream 0-0 k v} err
-        assert {[r EXISTS otherstream] == 0}
-    }
-
     test {XADD with LIMIT delete entries no more than limit} {
         r del yourstream
         for {set j 0} {$j < 3} {incr j} {
@@ -739,3 +733,5 @@ start_server {tags {"stream"}} {
         assert_match "*wrong number of arguments for 'xinfo|help' command" $e
     }
 }
+
+source tests/unit/type/stream-cgroups.tcl

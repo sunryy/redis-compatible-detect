@@ -1,3 +1,6 @@
+source tests/unit/bitops.tcl
+source tests/unit/bitfield.tcl
+
 start_server {tags {"string"}} {
     test {SET and GET an item} {
         r set x foobar

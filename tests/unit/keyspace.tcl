@@ -86,10 +86,6 @@ start_server {tags {"keyspace"}} {
         r get mykey2{t}
     } {hello}
 
-    test {RENAME source key should no longer exist} {
-        r exists mykey
-    } {0}
-
     test {RENAME against already existing key} {
         r set mykey{t} a
         r set mykey2{t} b
@@ -107,22 +103,6 @@ start_server {tags {"keyspace"}} {
         append res [r exists mykey{t}]
     } {foobar0}
 
-    test {RENAMENX against already existing key} {
-        r set mykey{t} foo
-        r set mykey2{t} bar
-        r renamenx mykey{t} mykey2{t}
-    } {0}
-
-    test {RENAMENX against already existing key (2)} {
-        set res [r get mykey{t}]
-        append res [r get mykey2{t}]
-    } {foobar}
-
-    test {RENAME against non existing source key} {
-        catch {r rename nokey{t} foobar{t}} err
-        format $err
-    } {ERR*}
-
     test {RENAME where source and dest key are the same (existing)} {
         r set mykey foo
         r rename mykey mykey
@@ -132,12 +112,6 @@ start_server {tags {"keyspace"}} {
         r set mykey foo
         r renamenx mykey mykey
     } {0}
-
-    test {RENAME where source and dest key are the same (non existing)} {
-        r del mykey
-        catch {r rename mykey mykey} err
-        format $err
-    } {ERR*}
 
     test {RENAME with volatile key, should move the TTL as well} {
         r del mykey{t} mykey2{t}
@@ -490,3 +464,9 @@ start_server {tags {"keyspace"}} {
         r keys *
     } {dlskeriewrioeuwqoirueioqwrueoqwrueqw}
 }
+
+source tests/unit/dump.tcl
+source tests/unit/expire.tcl
+source tests/unit/introspection-2.tcl
+source tests/unit/wait.tcl
+source tests/unit/expire.tcl

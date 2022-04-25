@@ -9,12 +9,6 @@ start_server {
         set err
     } {BUSYGROUP*}
 
-    test {XGROUP CREATE: automatic stream creation fails without MKSTREAM} {
-        r DEL mystream
-        catch {r XGROUP CREATE mystream mygroup $} err
-        set err
-    } {ERR*}
-
     test {XGROUP CREATE: automatic stream creation works with MKSTREAM} {
         r DEL mystream
         r XGROUP CREATE mystream mygroup $ MKSTREAM

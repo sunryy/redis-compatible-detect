@@ -332,6 +332,8 @@ proc run_external_server_test {code overrides} {
     set client [redis $::host $::port 0 $::tls]
     dict set srv "client" $client
     if {!$::singledb} {
+        #根据实际服务密码修改
+        $client auth 186899slF@     
         $client select 7
     }
 

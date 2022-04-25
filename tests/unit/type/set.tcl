@@ -748,3 +748,5 @@ if {[lindex [r config get proto-max-bulk-len] 1] == 10000000000} {
     } {} {large-memory}
 } ;# skip 32bit builds
 }
+
+source tests/unit/type/zset.tcl
